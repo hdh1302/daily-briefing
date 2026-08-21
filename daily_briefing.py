@@ -129,20 +129,7 @@ def summarize_with_gemini(finance_news: List[Dict[str, Any]], marketing_news: Li
     if not api_key:
         print("[Lưu ý] Chưa thiết lập GEMINI_API_KEY. Sử dụng tóm tắt dự phòng từ nguồn RSS.")
         return {
-            "finance_summary": "<i>(Chưa cấu hình GEMINI_API_KEY để phân tích AI chuyên sâu)</i>",
-            "marketing_summary": "<i>(Chưa cấu hình GEMINI_API_KEY để phân tích AI chuyên sâu)</i>",
-            "executive_summary": "Bản tin tổng hợp tin tức tài chính và marketing quốc tế trong đêm qua."
-        }
-
-    try:
-        from google import genai
-        client = genai.Client(api_key=api_key)
-    except Exception as e:
-        print(f"[Cảnh báo] Không thể khởi tạo Gemini Client: {e}")
-        return {
-            "finance_summary": "",
-            "marketing_summary": "",
-            "executive_summary": "Bản tin tự động thu thập từ các nguồn quốc tế."
+            "ai_analysis": "<i>(Chưa cấu hình GEMINI_API_KEY để phân tích AI chuyên sâu)</i>"
         }
 
     prompt = f"""
@@ -166,63 +153,79 @@ Hãy trả về bản tóm tắt bằng định dạng văn bản chuẩn, chia 
 Văn phong: Chuyên nghiệp, cô đọng, sắc bén, dễ đọc trên điện thoại vào buổi sáng.
 """
 
-    # 1. Tự động lấy danh sách các model khả dụng từ tài khoản API
-    selected_model = None
+    # Danh sách các model ưu tiên thử nghiệm
+    preferred_models = [
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-1.5-pro",
+        "gemini-1.0-pro"
+    ]
+
+    # Cách 1: Thử gọi qua google-genai SDK
     try:
-        models_pager = client.models.list()
-        for m in models_pager:
-            name = m.name or ""
-            # Ưu tiên các model flash nhanh và mới nhất hỗ trợ generateContent
-            if "flash" in name.lower() and "embed" not in name.lower():
-                selected_model = name
-                break
-        if not selected_model:
-            for m in client.models.list():
-                if "gemini" in m.name.lower() and "embed" not in m.name.lower():
-                    selected_model = m.name
-                    break
-    except Exception as e:
-        print(f"[Lưu ý khi quét model]: {e}")
+        from google import genai
+        client = genai.Client(api_key=api_key)
 
-    # Danh sách dự phòng nếu không liệt kê được
-    if not selected_model:
-        selected_model = "gemini-2.5-flash"
-
-    # Thử gọi model được chọn hoặc các model phổ biến
-    candidate_models = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"]
-    seen_models = set()
-    full_text = None
-    last_error = None
-
-    for model_name in candidate_models:
-        # Chuẩn hóa tên model (bỏ tiền tố models/ nếu có khi truyền vào SDK)
-        clean_name = model_name.replace("models/", "")
-        if clean_name in seen_models:
-            continue
-        seen_models.add(clean_name)
-
+        # Lấy danh sách model thực tế từ API nếu được
         try:
-            response = client.models.generate_content(
-                model=clean_name,
-                contents=prompt
-            )
-            if response and response.text:
-                full_text = response.text
-                print(f"✨ Đã tóm tắt thành công bằng model: {clean_name}")
-                break
+            for m in client.models.list():
+                m_name = (m.name or "").replace("models/", "")
+                if ("flash" in m_name.lower() or "pro" in m_name.lower()) and "embed" not in m_name.lower():
+                    if m_name not in preferred_models:
+                        preferred_models.insert(0, m_name)
         except Exception as e:
-            last_error = e
+            print(f"[List Models Notice]: {e}")
+
+        for model_name in preferred_models:
+            clean_name = model_name.replace("models/", "")
+            try:
+                print(f"-> Thử gọi Gemini model: {clean_name}...")
+                response = client.models.generate_content(
+                    model=clean_name,
+                    contents=prompt
+                )
+                if response and response.text:
+                    print(f"✨ Thành công với model {clean_name}!")
+                    return {"ai_analysis": response.text}
+            except Exception as err:
+                print(f"   [Model {clean_name} lỗi]: {err}")
+                continue
+    except Exception as sdk_err:
+        print(f"[SDK Error]: {sdk_err}")
+
+    # Cách 2: Fallback gọi trực tiếp qua Google AI Studio REST API
+    print("-> Thử nghiệm qua REST API trực tiếp...")
+    import json
+    for model_name in preferred_models:
+        clean_name = model_name.replace("models/", "")
+        rest_url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_name}:generateContent?key={api_key}"
+        req_data = json.dumps({
+            "contents": [{"parts": [{"text": prompt}]}]
+        }).encode("utf-8")
+        
+        try:
+            req = urllib.request.Request(
+                rest_url,
+                data=req_data,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                res_json = json.loads(resp.read().decode("utf-8"))
+                candidates = res_json.get("candidates", [])
+                if candidates:
+                    text = candidates[0]["content"]["parts"][0]["text"]
+                    print(f"✨ REST API thành công với model: {clean_name}")
+                    return {"ai_analysis": text}
+        except Exception as rest_err:
+            print(f"   [REST {clean_name} lỗi]: {rest_err}")
             continue
 
-    if full_text:
-        return {
-            "ai_analysis": full_text
-        }
-    else:
-        print(f"[Lỗi Gemini API]: {last_error}")
-        return {
-            "ai_analysis": f"Có lỗi khi tạo tóm tắt AI: {last_error}"
-        }
+    return {
+        "ai_analysis": "Không thể kết nối với Gemini API. Vui lòng kiểm tra lại GEMINI_API_KEY trong GitHub Secrets."
+    }
 
 
 # ==============================================================================
