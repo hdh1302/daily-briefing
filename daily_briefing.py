@@ -177,33 +177,51 @@ Văn phong: Chuyên nghiệp, cô đọng, sắc bén, dễ đọc trên điện
 
     print(f"-> Tìm thấy {len(available_models)} model khả dụng từ tài khoản Google.")
 
-    # 2. Sắp xếp ưu tiên: flash -> pro -> các model khác
+    # 2. Sắp xếp ưu tiên: gemini-3.6-flash / 3.5-flash -> flash khác -> pro -> loại bỏ TTS
     def model_priority(item):
         _, name = item
         name_lower = name.lower()
-        if "flash" in name_lower:
+        if "tts" in name_lower or "audio" in name_lower or "embed" in name_lower:
+            return 99  # Bỏ qua các model âm thanh/nhúng
+        if "3.6-flash" in name_lower:
             return 1
-        if "pro" in name_lower:
+        if "3.5-flash" in name_lower or "3-flash" in name_lower:
             return 2
-        return 3
+        if "3.6-pro" in name_lower or "3.5-pro" in name_lower:
+            return 3
+        if "flash" in name_lower:
+            return 4
+        if "pro" in name_lower:
+            return 5
+        return 6
 
-    sorted_models = sorted(available_models, key=model_priority)
+    # Lọc bỏ các model không phải văn bản (TTS, embed)
+    valid_models = [m for m in available_models if "tts" not in m[1].lower() and "embed" not in m[1].lower()]
+    sorted_models = sorted(valid_models, key=model_priority)
     
-    # Nếu không list được, dùng danh sách fallback
-    if not sorted_models:
-        sorted_models = [
-            ("v1beta", "models/gemini-3.6-flash"),
-            ("v1beta", "models/gemini-2.5-flash"),
-            ("v1beta", "models/gemini-2.0-flash"),
-            ("v1", "models/gemini-1.5-flash")
-        ]
+    # Danh sách ưu tiên mặc định bao gồm gemini-3.6-flash và gemini-3.5-flash
+    hardcoded_priority = [
+        ("v1beta", "models/gemini-3.6-flash"),
+        ("v1beta", "models/gemini-3.5-flash"),
+        ("v1beta", "models/gemini-3.0-flash"),
+        ("v1beta", "models/gemini-3.6-pro"),
+        ("v1beta", "models/gemini-3.5-pro"),
+    ]
+    
+    # Ghép danh sách ưu tiên lên đầu
+    final_models = []
+    seen = set()
+    for item in hardcoded_priority + sorted_models:
+        if item[1] not in seen:
+            seen.add(item[1])
+            final_models.append(item)
 
     # 3. Thử gọi generateContent lần lượt trên các model tìm được
     payload = json.dumps({
         "contents": [{"parts": [{"text": prompt}]}]
     }).encode("utf-8")
 
-    for api_ver, full_model_name in sorted_models:
+    for api_ver, full_model_name in final_models:
         url = f"https://generativelanguage.googleapis.com/{api_ver}/{full_model_name}:generateContent?key={api_key}"
         try:
             print(f"-> Đang gửi yêu cầu tóm tắt đến: {full_model_name} ({api_ver})...")
