@@ -153,88 +153,55 @@ Hãy trả về bản tóm tắt bằng định dạng văn bản chuẩn, chia 
 Văn phong: Chuyên nghiệp, cô đọng, sắc bén, dễ đọc trên điện thoại vào buổi sáng.
 """
 
-    # Danh sách các model ưu tiên thử nghiệm
-    preferred_models = [
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-exp",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-8b",
-        "gemini-1.5-pro",
-        "gemini-1.0-pro"
-    ]
-
-    # Cách 1: Thử gọi qua google-genai SDK
-    try:
-        from google import genai
-        client = genai.Client(api_key=api_key)
-
-        # Lấy danh sách model thực tế từ API nếu được
-        try:
-            for m in client.models.list():
-                m_name = (m.name or "").replace("models/", "")
-                if ("flash" in m_name.lower() or "pro" in m_name.lower()) and "embed" not in m_name.lower():
-                    if m_name not in preferred_models:
-                        preferred_models.insert(0, m_name)
-        except Exception as e:
-            print(f"[List Models Notice]: {e}")
-
-        for model_name in preferred_models:
-            clean_name = model_name.replace("models/", "")
-            try:
-                print(f"-> Thử gọi Gemini model: {clean_name}...")
-                response = client.models.generate_content(
-                    model=clean_name,
-                    contents=prompt
-                )
-                if response and response.text:
-                    print(f"✨ Thành công với model {clean_name}!")
-                    return {"ai_analysis": response.text}
-            except Exception as err:
-                print(f"   [Model {clean_name} lỗi]: {err}")
-                continue
-    except Exception as sdk_err:
-        print(f"[SDK Error]: {sdk_err}")
-
-    # Cách 2: Fallback gọi trực tiếp qua Google AI Studio REST API
-    print("-> Thử nghiệm qua REST API trực tiếp...")
+    debug_logs = []
+    
+    # Cách 1: Gọi qua REST API trực tiếp tới Google AI Studio (Chuẩn xác & Độc lập)
     import json
-    for model_name in preferred_models:
-        clean_name = model_name.replace("models/", "")
-        rest_url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_name}:generateContent?key={api_key}"
-        req_data = json.dumps({
+    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-pro"]
+    
+    for model_name in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        payload = json.dumps({
             "contents": [{"parts": [{"text": prompt}]}]
         }).encode("utf-8")
         
         try:
             req = urllib.request.Request(
-                rest_url,
-                data=req_data,
+                url,
+                data=payload,
                 headers={"Content-Type": "application/json"}
             )
             with urllib.request.urlopen(req, timeout=30) as resp:
-                res_json = json.loads(resp.read().decode("utf-8"))
-                candidates = res_json.get("candidates", [])
+                data = json.loads(resp.read().decode("utf-8"))
+                candidates = data.get("candidates", [])
                 if candidates:
-                    text = candidates[0]["content"]["parts"][0]["text"]
-                    print(f"✨ REST API thành công với model: {clean_name}")
-                    return {"ai_analysis": text}
-        except Exception as rest_err:
-            print(f"   [REST {clean_name} lỗi]: {rest_err}")
-            continue
+                    text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if text:
+                        print(f"✨ Thành công với model: {model_name}")
+                        return {"ai_analysis": text}
+        except urllib.error.HTTPError as http_err:
+            err_body = http_err.read().decode("utf-8", errors="ignore")
+            debug_logs.append(f"HTTP {http_err.code} ({model_name}): {err_body[:180]}")
+            print(f"   [HTTP Error {http_err.code}]: {err_body}")
+        except Exception as e:
+            debug_logs.append(f"Lỗi ({model_name}): {str(e)}")
 
-    # Tổng hợp các lỗi nếu có
-    error_summary = []
-    if 'sdk_err' in locals():
-        error_summary.append(f"SDK: {sdk_err}")
-    if 'last_error' in locals() and last_error:
-        error_summary.append(f"Model Error: {last_error}")
-    if 'rest_err' in locals() and rest_err:
-        error_summary.append(f"REST: {rest_err}")
+    # Cách 2: Thử qua SDK nếu REST chưa được
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        resp = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
+        if resp and resp.text:
+            return {"ai_analysis": resp.text}
+    except Exception as e:
+        debug_logs.append(f"SDK: {str(e)[:150]}")
 
-    details = " | ".join(error_summary) if error_summary else "Vui lòng kiểm tra lại GEMINI_API_KEY"
+    details_text = "<br>".join(debug_logs) if debug_logs else "Không nhận được phản hồi từ máy chủ Google."
     return {
-        "ai_analysis": f"Không thể kết nối với Gemini API.<br><small style='color: #64748b;'>Chi tiết: {details}</small>"
+        "ai_analysis": f"<strong>Chưa lấy được tóm tắt AI.</strong><br><br><span style='font-size:12px; color:#b91c1c;'>Chi tiết từ Google API:<br>{details_text}</span>"
     }
 
 
