@@ -28,26 +28,22 @@ import pytz
 load_dotenv()
 
 # ==============================================================================
-# 1. Cấu hình Nguồn Báo Uy Tín Hàng Đầu Thế Giới (Tier 1 Global Outlets)
+# 1. Cấu hình Nguồn Báo Uy Tín Theo Yêu Cầu
 # ==============================================================================
 RSS_SOURCES = {
     "tech": [
         {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml"},
         {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},
-        {"name": "The Guardian (Tech)", "url": "https://www.theguardian.com/technology/rss"},
-        {"name": "Wired", "url": "https://www.wired.com/feed/rss"},
     ],
     "finance": [
-        {"name": "The Guardian (Business)", "url": "https://www.theguardian.com/business/rss"},
-        {"name": "The Economist (Finance)", "url": "https://www.economist.com/finance-and-economics/rss.xml"},
-        {"name": "CNBC Finance", "url": "https://search.cnbc.com/rs/search/view.html?partnerId=2000&keywords=finance&sort=date"},
-        {"name": "MarketWatch", "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories"},
+        {"name": "Bloomberg", "url": "https://feeds.bloomberg.com/markets/news.rss"},
+        {"name": "Reuters", "url": "https://news.google.com/rss/search?q=site:reuters.com+business+OR+markets&hl=en-US&gl=US&ceid=US:en"},
+        {"name": "Financial Times", "url": "https://www.ft.com/news-feed?format=rss"},
     ],
     "marketing": [
-        {"name": "Marketing Dive", "url": "https://www.marketingdive.com/feeds/news/"},
+        {"name": "Ad Age", "url": "https://news.google.com/rss/search?q=site:adage.com&hl=en-US&gl=US&ceid=US:en"},
         {"name": "Adweek", "url": "https://www.adweek.com/feed/"},
-        {"name": "Social Media Today", "url": "https://www.socialmediatoday.com/feeds/news/"},
-        {"name": "The Drum", "url": "https://www.thedrum.com/rss/news"},
+        {"name": "Marketing Week", "url": "https://news.google.com/rss/search?q=site:marketingweek.com&hl=en-US&gl=US&ceid=US:en"},
     ],
 }
 
@@ -155,7 +151,10 @@ def summarize_with_gemini(
 
     prompt = f"""
 Bạn là một chuyên gia phân tích công nghệ, chiến lược tài chính và marketing cao cấp.
-Dưới đây là các tin tức NỔI BẬT NHẤT (Hot News) từ các nguồn báo lớn nhất thế giới (The Economist, The Guardian, The Verge, TechCrunch, Adweek, CNBC...) trong đêm qua.
+Dưới đây là các tin tức NỔI BẬT NHẤT (Hot News) từ các nguồn báo lớn nhất thế giới:
+- Tech: The Verge, TechCrunch
+- Finance: Bloomberg, Reuters, Financial Times
+- Marketing: Ad Age, Adweek, Marketing Week
 
 Nhiệm vụ của bạn là tổng hợp và viết bản tóm tắt buổi sáng (Morning Executive Briefing) bằng tiếng Việt cực kỳ sắc bén, ngắn gọn và có chiều sâu.
 
@@ -176,14 +175,14 @@ Hãy trình bày theo cấu trúc sau (dùng tiếng Việt chuẩn, chuyên ngh
 ### ⚡ ĐIỂM TIN NỔI BẬT 60 GIÂY
 (Tóm tắt 2-3 câu ngắn gọn về diễn biến nổi bật nhất của đêm qua)
 
-### 💻 TECH & AI
-(Tóm tắt 2-3 ý chính của các tin công nghệ hot, nêu rõ tên nguồn báo/hãng công nghệ, gạch đầu dòng kèm góc nhìn ngắn gọn)
+### 💻 TECH & AI (The Verge, TechCrunch)
+(Tóm tắt 2-3 ý chính của các tin công nghệ hot, nêu rõ tên nguồn/hãng công nghệ, gạch đầu dòng kèm góc nhìn ngắn gọn)
 
-### 📊 TÀI CHÍNH & THỊ TRƯỜNG
-(Tóm tắt 2-3 ý chính về biến động thị trường, doanh nghiệp, dòng tiền từ The Economist/The Guardian/CNBC, gạch đầu dòng)
+### 📊 TÀI CHÍNH & THỊ TRƯỜNG (Bloomberg, Reuters, Financial Times)
+(Tóm tắt 2-3 ý chính về biến động thị trường, dòng tiền, doanh nghiệp, gạch đầu dòng)
 
-### 🚀 MARKETING & XU HƯỚNG
-(Tóm tắt 2-3 ý chính về chiến dịch marketing, quảng cáo, mạng xã hội và bài học áp dụng, gạch đầu dòng)
+### 🚀 MARKETING & XU HƯỚNG (Ad Age, Adweek, Marketing Week)
+(Tóm tắt 2-3 ý chính về chiến dịch, thương hiệu, quảng cáo và bài học áp dụng, gạch đầu dòng)
 """
 
     debug_logs = []
@@ -358,24 +357,24 @@ def generate_html_email(
 
                 <!-- 1. Tech Section -->
                 <div style="margin-bottom: 28px;">
-                    <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 14px; display: flex; align-items: center;">
-                        <h2 style="font-size: 17px; font-weight: 800; color: #5b21b6; margin: 0;">💻 Công Nghệ & AI (The Verge, TechCrunch, Wired)</h2>
+                    <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 14px;">
+                        <h2 style="font-size: 17px; font-weight: 800; color: #5b21b6; margin: 0;">💻 Công Nghệ & AI (The Verge, TechCrunch)</h2>
                     </div>
                     {tech_html}
                 </div>
 
                 <!-- 2. Finance Section -->
                 <div style="margin-bottom: 28px;">
-                    <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 14px; display: flex; align-items: center;">
-                        <h2 style="font-size: 17px; font-weight: 800; color: #0369a1; margin: 0;">📊 Tài Chính & Kinh Tế (The Economist, The Guardian, CNBC)</h2>
+                    <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 14px;">
+                        <h2 style="font-size: 17px; font-weight: 800; color: #0369a1; margin: 0;">📊 Tài Chính & Thị Trường (Bloomberg, Reuters, Financial Times)</h2>
                     </div>
                     {finance_html}
                 </div>
 
                 <!-- 3. Marketing Section -->
                 <div style="margin-bottom: 24px;">
-                    <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 14px; display: flex; align-items: center;">
-                        <h2 style="font-size: 17px; font-weight: 800; color: #b45309; margin: 0;">🚀 Marketing & Truyền Thông (Adweek, Marketing Dive, Social Media Today)</h2>
+                    <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 14px;">
+                        <h2 style="font-size: 17px; font-weight: 800; color: #b45309; margin: 0;">🚀 Marketing & Truyền Thông (Ad Age, Adweek, Marketing Week)</h2>
                     </div>
                     {marketing_html}
                 </div>
@@ -444,15 +443,15 @@ def main():
         print(f"🕒 Khung giờ lọc: {start_time.strftime('%H:%M')} đến {end_time.strftime('%H:%M')} ({today.strftime('%d/%m/%Y')})")
 
     # 1. Thu thập tin tức theo 3 chủ đề (mỗi chủ đề 2-3 bài hot nhất)
-    print("-> Đang quét tin Tech (The Verge, TechCrunch, The Guardian, Wired)...")
+    print("-> Đang quét tin Tech (The Verge, TechCrunch)...")
     tech_articles = fetch_articles("tech", start_time, end_time, force_all=args.force_all_hours, max_articles=3)
     print(f"   Tìm thấy {len(tech_articles)} bài viết Tech hot.")
 
-    print("-> Đang quét tin Finance (The Economist, The Guardian, CNBC, MarketWatch)...")
+    print("-> Đang quét tin Finance (Bloomberg, Reuters, Financial Times)...")
     finance_articles = fetch_articles("finance", start_time, end_time, force_all=args.force_all_hours, max_articles=3)
     print(f"   Tìm thấy {len(finance_articles)} bài viết Finance hot.")
 
-    print("-> Đang quét tin Marketing (Adweek, Marketing Dive, Social Media Today, The Drum)...")
+    print("-> Đang quét tin Marketing (Ad Age, Adweek, Marketing Week)...")
     marketing_articles = fetch_articles("marketing", start_time, end_time, force_all=args.force_all_hours, max_articles=3)
     print(f"   Tìm thấy {len(marketing_articles)} bài viết Marketing hot.")
 
