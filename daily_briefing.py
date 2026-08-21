@@ -166,19 +166,49 @@ Hãy trả về bản tóm tắt bằng định dạng văn bản chuẩn, chia 
 Văn phong: Chuyên nghiệp, cô đọng, sắc bén, dễ đọc trên điện thoại vào buổi sáng.
 """
 
-    # Danh sách các model để thử lần lượt phòng khi một model bị đổi tên
-    candidate_models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
-    
+    # 1. Tự động lấy danh sách các model khả dụng từ tài khoản API
+    selected_model = None
+    try:
+        models_pager = client.models.list()
+        for m in models_pager:
+            name = m.name or ""
+            # Ưu tiên các model flash nhanh và mới nhất hỗ trợ generateContent
+            if "flash" in name.lower() and "embed" not in name.lower():
+                selected_model = name
+                break
+        if not selected_model:
+            for m in client.models.list():
+                if "gemini" in m.name.lower() and "embed" not in m.name.lower():
+                    selected_model = m.name
+                    break
+    except Exception as e:
+        print(f"[Lưu ý khi quét model]: {e}")
+
+    # Danh sách dự phòng nếu không liệt kê được
+    if not selected_model:
+        selected_model = "gemini-2.5-flash"
+
+    # Thử gọi model được chọn hoặc các model phổ biến
+    candidate_models = [selected_model, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"]
+    seen_models = set()
     full_text = None
     last_error = None
+
     for model_name in candidate_models:
+        # Chuẩn hóa tên model (bỏ tiền tố models/ nếu có khi truyền vào SDK)
+        clean_name = model_name.replace("models/", "")
+        if clean_name in seen_models:
+            continue
+        seen_models.add(clean_name)
+
         try:
             response = client.models.generate_content(
-                model=model_name,
+                model=clean_name,
                 contents=prompt
             )
-            full_text = response.text or ""
-            if full_text:
+            if response and response.text:
+                full_text = response.text
+                print(f"✨ Đã tóm tắt thành công bằng model: {clean_name}")
                 break
         except Exception as e:
             last_error = e
@@ -206,7 +236,16 @@ def generate_html_email(
 ) -> str:
     """Tạo template email HTML hiện đại, chuẩn Responsive cho mobile và desktop."""
     
-    ai_analysis_html = ai_content.get("ai_analysis", "").replace("\n", "<br>")
+    raw_ai_text = ai_content.get("ai_analysis", "")
+    # Chuyển đổi cơ bản các định dạng markdown phổ biến sang HTML
+    import re
+    ai_formatted = raw_ai_text
+    ai_formatted = re.sub(r'###\s*(.*?)\n', r'<h3 style="color: #1e3a8a; margin: 12px 0 6px 0; font-size: 15px;">\1</h3>', ai_formatted)
+    ai_formatted = re.sub(r'##\s*(.*?)\n', r'<h2 style="color: #1e3a8a; margin: 16px 0 8px 0; font-size: 16px;">\1</h2>', ai_formatted)
+    ai_formatted = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', ai_formatted)
+    ai_formatted = re.sub(r'^\s*[-*]\s*(.*?)$', r'<li style="margin-bottom: 6px;">\1</li>', ai_formatted, flags=re.MULTILINE)
+    ai_formatted = ai_formatted.replace("\n\n", "<br><br>").replace("\n", "<br>")
+    ai_analysis_html = ai_formatted
     
     def render_article_list(items: List[Dict[str, Any]]) -> str:
         if not items:
