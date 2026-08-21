@@ -125,7 +125,7 @@ def summarize_with_gemini(finance_news: List[Dict[str, Any]], marketing_news: Li
     """
     Sử dụng Gemini API để tóm tắt, phân tích và dịch tin tức sang tiếng Việt chuyên sâu.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
     if not api_key:
         print("[Lưu ý] Chưa thiết lập GEMINI_API_KEY. Sử dụng tóm tắt dự phòng từ nguồn RSS.")
         return {
@@ -223,8 +223,18 @@ Văn phong: Chuyên nghiệp, cô đọng, sắc bén, dễ đọc trên điện
             print(f"   [REST {clean_name} lỗi]: {rest_err}")
             continue
 
+    # Tổng hợp các lỗi nếu có
+    error_summary = []
+    if 'sdk_err' in locals():
+        error_summary.append(f"SDK: {sdk_err}")
+    if 'last_error' in locals() and last_error:
+        error_summary.append(f"Model Error: {last_error}")
+    if 'rest_err' in locals() and rest_err:
+        error_summary.append(f"REST: {rest_err}")
+
+    details = " | ".join(error_summary) if error_summary else "Vui lòng kiểm tra lại GEMINI_API_KEY"
     return {
-        "ai_analysis": "Không thể kết nối với Gemini API. Vui lòng kiểm tra lại GEMINI_API_KEY trong GitHub Secrets."
+        "ai_analysis": f"Không thể kết nối với Gemini API.<br><small style='color: #64748b;'>Chi tiết: {details}</small>"
     }
 
 
