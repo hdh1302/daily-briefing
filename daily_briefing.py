@@ -154,52 +154,82 @@ Văn phong: Chuyên nghiệp, cô đọng, sắc bén, dễ đọc trên điện
 """
 
     debug_logs = []
-    
-    # Cách 1: Gọi qua REST API trực tiếp tới Google AI Studio (Chuẩn xác & Độc lập)
     import json
-    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-pro"]
     
-    for model_name in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-        payload = json.dumps({
-            "contents": [{"parts": [{"text": prompt}]}]
-        }).encode("utf-8")
-        
+    # 1. Gọi ListModels để lấy chính xác danh sách model mà API Key này được phép dùng
+    available_models = []
+    for api_ver in ["v1beta", "v1"]:
         try:
+            list_url = f"https://generativelanguage.googleapis.com/{api_ver}/models?key={api_key}"
+            req = urllib.request.Request(list_url)
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                for item in data.get("models", []):
+                    methods = item.get("supportedGenerationMethods", [])
+                    if "generateContent" in methods:
+                        m_name = item.get("name", "")
+                        if m_name:
+                            available_models.append((api_ver, m_name))
+            if available_models:
+                break
+        except Exception as list_err:
+            debug_logs.append(f"ListModels ({api_ver}) lỗi: {str(list_err)}")
+
+    print(f"-> Tìm thấy {len(available_models)} model khả dụng từ tài khoản Google.")
+
+    # 2. Sắp xếp ưu tiên: flash -> pro -> các model khác
+    def model_priority(item):
+        _, name = item
+        name_lower = name.lower()
+        if "flash" in name_lower:
+            return 1
+        if "pro" in name_lower:
+            return 2
+        return 3
+
+    sorted_models = sorted(available_models, key=model_priority)
+    
+    # Nếu không list được, dùng danh sách fallback
+    if not sorted_models:
+        sorted_models = [
+            ("v1beta", "models/gemini-3.6-flash"),
+            ("v1beta", "models/gemini-2.5-flash"),
+            ("v1beta", "models/gemini-2.0-flash"),
+            ("v1", "models/gemini-1.5-flash")
+        ]
+
+    # 3. Thử gọi generateContent lần lượt trên các model tìm được
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}]
+    }).encode("utf-8")
+
+    for api_ver, full_model_name in sorted_models:
+        url = f"https://generativelanguage.googleapis.com/{api_ver}/{full_model_name}:generateContent?key={api_key}"
+        try:
+            print(f"-> Đang gửi yêu cầu tóm tắt đến: {full_model_name} ({api_ver})...")
             req = urllib.request.Request(
                 url,
                 data=payload,
                 headers={"Content-Type": "application/json"}
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                candidates = data.get("candidates", [])
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+                candidates = res_data.get("candidates", [])
                 if candidates:
-                    text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                    if text:
-                        print(f"✨ Thành công với model: {model_name}")
-                        return {"ai_analysis": text}
+                    content_parts = candidates[0].get("content", {}).get("parts", [])
+                    if content_parts:
+                        text = content_parts[0].get("text", "")
+                        if text:
+                            print(f"✨ Thành công với {full_model_name}!")
+                            return {"ai_analysis": text}
         except urllib.error.HTTPError as http_err:
             err_body = http_err.read().decode("utf-8", errors="ignore")
-            debug_logs.append(f"HTTP {http_err.code} ({model_name}): {err_body[:180]}")
-            print(f"   [HTTP Error {http_err.code}]: {err_body}")
-        except Exception as e:
-            debug_logs.append(f"Lỗi ({model_name}): {str(e)}")
+            debug_logs.append(f"HTTP {http_err.code} ({full_model_name}): {err_body[:150]}")
+            print(f"   [Lỗi HTTP {http_err.code}]: {err_body}")
+        except Exception as req_err:
+            debug_logs.append(f"Lỗi ({full_model_name}): {str(req_err)}")
 
-    # Cách 2: Thử qua SDK nếu REST chưa được
-    try:
-        from google import genai
-        client = genai.Client(api_key=api_key)
-        resp = client.models.generate_content(
-            model="gemini-1.5-flash",
-            contents=prompt
-        )
-        if resp and resp.text:
-            return {"ai_analysis": resp.text}
-    except Exception as e:
-        debug_logs.append(f"SDK: {str(e)[:150]}")
-
-    details_text = "<br>".join(debug_logs) if debug_logs else "Không nhận được phản hồi từ máy chủ Google."
+    details_text = "<br>".join(debug_logs[:5]) if debug_logs else "Không nhận được phản hồi từ Google."
     return {
         "ai_analysis": f"<strong>Chưa lấy được tóm tắt AI.</strong><br><br><span style='font-size:12px; color:#b91c1c;'>Chi tiết từ Google API:<br>{details_text}</span>"
     }
