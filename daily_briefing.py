@@ -166,19 +166,32 @@ Hãy trả về bản tóm tắt bằng định dạng văn bản chuẩn, chia 
 Văn phong: Chuyên nghiệp, cô đọng, sắc bén, dễ đọc trên điện thoại vào buổi sáng.
 """
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
-        full_text = response.text or ""
+    # Danh sách các model để thử lần lượt phòng khi một model bị đổi tên
+    candidate_models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    
+    full_text = None
+    last_error = None
+    for model_name in candidate_models:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            full_text = response.text or ""
+            if full_text:
+                break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if full_text:
         return {
             "ai_analysis": full_text
         }
-    except Exception as e:
-        print(f"[Lỗi Gemini API]: {e}")
+    else:
+        print(f"[Lỗi Gemini API]: {last_error}")
         return {
-            "ai_analysis": f"Có lỗi khi tạo tóm tắt AI: {e}"
+            "ai_analysis": f"Có lỗi khi tạo tóm tắt AI: {last_error}"
         }
 
 
