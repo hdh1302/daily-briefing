@@ -20,5 +20,5 @@ if __name__ == "__main__":
         problem = "Should we adopt Rust or Go for our high-throughput backend service?"
 
     print(f"Running consensus for: {problem}")
-    report = run_consensus(problem, n_agents=5)
+    report = run_consensus(problem, n_agents=10)
     print(report.report_markdown)

@@ -174,8 +174,8 @@ def _aggregate(api_key: str, problem: str, results: List[AgentResult], model: st
 
 def run_consensus(
     problem: str,
-    n_agents: int = 5,
-    max_workers: int = 5,
+    n_agents: int = 10,
+    max_workers: int = 10,
     model: str = DEFAULT_MODEL,
     api_key: Optional[str] = None
 ) -> ConsensusReport:
@@ -233,7 +233,7 @@ if __name__ == "__main__":
         print("[Lưu ý] Chưa thiết lập GEMINI_API_KEY trong .env. Vui lòng thêm GEMINI_API_KEY để chạy thực tế.")
     else:
         try:
-            report = run_consensus(example_problem, n_agents=5)
+            report = run_consensus(example_problem, n_agents=10)
             print(f"\n=== Kết quả từ {report.n_agents} Agents độc lập ===")
             for r in report.agent_results:
                 print(f"Agent {r.index + 1}: {r.final_answer}")
