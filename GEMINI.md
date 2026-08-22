@@ -22,3 +22,11 @@ Tệp này quy định phong cách làm việc, quy chuẩn viết code và các
 - **Kiểm tra trước khi sửa**: Luôn đọc và hiểu cấu trúc file trước khi thay đổi.
 - **Xử lý lỗi (Error Handling)**: Bắt lỗi chi tiết, có thông báo log rõ ràng và thân thiện với người dùng.
 - **Bảo mật**: Không hardcode API key, password, credentials vào mã nguồn; sử dụng biến môi trường (`.env`).
+tên tôi là Hoàng Duy Hưng. tôi sinh năm 2005
+## 4. Những luật đã được học (Learned Preferences)
+- **Định dạng Google Forms**:
+  - Tiêu đề câu hỏi trắc nghiệm luôn luôn in đậm (`**Câu X. ...**`).
+  - Phần chỗ trống điền từ dùng ký hiệu `[ .......... ]` hoặc `______` bọc trong thẻ in đậm để tránh bị trình soạn thảo Google Forms hiểu nhầm cú pháp Markdown.
+- **Tổng hợp tin tức (Daily Briefing)**:
+  - Phân loại rõ ràng 3 chuyên mục: Tech (The Verge, TechCrunch), Finance (Bloomberg, Reuters, Financial Times), Marketing (Ad Age, Adweek, Marketing Week).
+  - Lọc khung giờ 00:00 - 07:00 sáng (giờ VN), mỗi chủ đề chọn 2-3 tin hot nhất kèm tóm tắt AI sắc bén.
